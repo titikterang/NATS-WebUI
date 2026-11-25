@@ -1,0 +1,46 @@
+# 3-node NATS cluster with JetStream (raft, so streams can be replicated R3). No auth, no TLS.
+#
+#   make -C example up-cluster
+#   client URLs:  nats://127.0.0.1:4231, :4232, :4233   (any node works)
+#   monitoring:   http://127.0.0.1:8231, :8232, :8233   (add each node as its own server in the WebUI)
+#   from other example containers: nats://nats-1:4222,nats://nats-2:4222,nats://nats-3:4222
+
+name: nats-example-cluster
+
+x-node: &node
+  image: nats:2.15.3-alpine
+  command: ["--config", "/etc/nats/nats.conf"]
+  networks: [nats-examples]
+  cpus: 0.5
+  mem_limit: 256m
+  healthcheck:
+    test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8222/healthz"]
+    interval: 5s
+    timeout: 3s
+    retries: 20
+
+services:
+  nats-1:
+    <<: *node
+    environment: { SERVER_NAME: nats-1 }
+    ports: ["127.0.0.1:4231:4222", "127.0.0.1:8231:8222"]
+    volumes: ["./nats.conf:/etc/nats/nats.conf:ro", "data-1:/data"]
+  nats-2:
+    <<: *node
+    environment: { SERVER_NAME: nats-2 }
+    ports: ["127.0.0.1:4232:4222", "127.0.0.1:8232:8222"]
+    volumes: ["./nats.conf:/etc/nats/nats.conf:ro", "data-2:/data"]
+  nats-3:
+    <<: *node
+    environment: { SERVER_NAME: nats-3 }
+    ports: ["127.0.0.1:4233:4222", "127.0.0.1:8233:8222"]
+    volumes: ["./nats.conf:/etc/nats/nats.conf:ro", "data-3:/data"]
+
+volumes:
+  data-1: {}
+  data-2: {}
+  data-3: {}
+
+networks:
+  nats-examples:
+    external: true

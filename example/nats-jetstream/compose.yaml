@@ -1,0 +1,32 @@
+# Single NATS server with JetStream and the HTTP monitoring endpoint. No auth, no TLS.
+#
+#   make -C example up-jetstream
+#   client URL: nats://127.0.0.1:4222      monitoring: http://127.0.0.1:8222
+#   from other example containers: nats://nats-js:4222
+
+name: nats-example-jetstream
+
+services:
+  nats-js:
+    image: nats:2.15.3-alpine
+    command: ["--name", "js-1", "--jetstream", "--store_dir", "/data", "--http_port", "8222"]
+    ports:
+      - "127.0.0.1:4222:4222"
+      - "127.0.0.1:8222:8222"
+    volumes:
+      - js-data:/data
+    networks: [nats-examples]
+    cpus: 1.0
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8222/healthz?js-enabled-only=true"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  js-data: {}
+
+networks:
+  nats-examples:
+    external: true

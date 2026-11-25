@@ -1,0 +1,84 @@
+# Local development stack with resource limits.
+#
+#   cp .env.example .env        # set NATS_CA_HOST_PATH at least
+#   make up                     # builds and starts
+#
+# Limits (override in .env): CPU, memory (no swap), process count and disk.
+# Disk is bounded without root or special volume drivers:
+#   - the root filesystem is read-only, /tmp is a 64 MB tmpfs and logs rotate (3 x 10 MB);
+#   - the only other writes are the SQLite database in /data, capped by DATABASE_MAX_MB
+#     (SQLite max_page_count; writes beyond it fail with "database is full").
+# `storage_opt: size` isn't used: the overlayfs/containerd snapshotter silently ignores it, and
+# loop-mounting an image file through the local volume driver needs root (losetup).
+
+name: nats-webui
+
+services:
+  webui:
+    build:
+      context: .
+      target: ${WEBUI_TARGET:-debug}
+    image: nats-webui:${WEBUI_TARGET:-debug}
+    ports:
+      - "127.0.0.1:${WEBUI_HOST_PORT:-8080}:8080"
+    environment:
+      BIND_ADDR: 0.0.0.0:8080
+      DATABASE_URL: /data/sqlite.db
+      DATABASE_MAX_MB: ${WEBUI_DB_MAX_MB:-256}
+      STATIC_DIR: /app/web/dist
+      NATS_CA_FILE: /certs/nats-ca.crt
+      RUST_LOG: ${RUST_LOG:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+    volumes:
+      - webui-data:/data
+      - type: bind
+        source: ${NATS_CA_HOST_PATH:?Set NATS_CA_HOST_PATH in .env to the NATS CA certificate}
+        target: /certs/nats-ca.crt
+        read_only: true
+    # Resource limits
+    cpus: ${WEBUI_CPUS:-1.0}
+    mem_limit: ${WEBUI_MEM:-256m}
+    memswap_limit: ${WEBUI_MEM:-256m}
+    pids_limit: ${WEBUI_PIDS:-256}
+    # Disk: everything outside /data (capped by DATABASE_MAX_MB) and /tmp is read-only
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    # Hardening
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/app/nats-webui", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Vite dev server with hot reload, proxying to the webui service.
+  #   docker compose --profile ui-dev up   → http://127.0.0.1:5173
+  ui-dev:
+    profiles: [ui-dev]
+    image: node:26-trixie-slim
+    working_dir: /web
+    command: sh -c "npm ci --no-audit --no-fund && npx vite --host 0.0.0.0"
+    environment:
+      NATS_WEBUI_BACKEND: http://webui:8080
+    volumes:
+      - ./web:/web
+      - ui-node-modules:/web/node_modules
+    ports:
+      - "127.0.0.1:${UI_DEV_HOST_PORT:-5173}:5173"
+    cpus: 2
+    mem_limit: 1g
+    pids_limit: 512
+    depends_on: [webui]
+
+volumes:
+  webui-data: {}
+  ui-node-modules: {}

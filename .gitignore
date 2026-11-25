@@ -2,3 +2,23 @@
 .idea/*
 /sqlite.db
 /sqlite.db.BAK
+vendor/
+sandbox/
+credential/
+
+# Local configuration (copy from .env.example). May contain internal hosts and paths.
+.env
+# Local SQLite databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+# Security scan output (make scan)
+.security-reports/
+semgrep-report.*
+scan-summary.md
+# Example setups: local passwords and generated certificates
+example/.env
+example/nats-auth/certs/
+example/clients/node/node_modules/
+/scan-reports/

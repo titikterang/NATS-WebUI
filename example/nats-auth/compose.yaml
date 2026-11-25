@@ -1,0 +1,41 @@
+# NATS with JetStream + userpass auth (per-user permissions) + TLS from a local CA.
+#
+#   cp example/.env.example example/.env     # set the three passwords
+#   make -C example up-auth                  # generates certs/ on first run
+#   client URL: tls://127.0.0.1:4242   CA: example/nats-auth/certs/ca.pem   monitoring: http://127.0.0.1:8242
+#   from other example containers: tls://nats-auth:4222
+#
+# Users: admin (full), app (app.> only), monitor (read-only; use it in the WebUI).
+
+name: nats-example-auth
+
+services:
+  nats-auth:
+    image: nats:2.15.3-alpine
+    command: ["--config", "/etc/nats/nats.conf"]
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in example/.env}
+      APP_PASSWORD: ${APP_PASSWORD:?set APP_PASSWORD in example/.env}
+      MONITOR_PASSWORD: ${MONITOR_PASSWORD:?set MONITOR_PASSWORD in example/.env}
+    ports:
+      - "127.0.0.1:4242:4222"
+      - "127.0.0.1:8242:8222"
+    volumes:
+      - ./nats.conf:/etc/nats/nats.conf:ro
+      - ./certs:/certs:ro
+      - auth-data:/data
+    networks: [nats-examples]
+    cpus: 1.0
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  auth-data: {}
+
+networks:
+  nats-examples:
+    external: true
