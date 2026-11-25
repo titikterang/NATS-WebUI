@@ -43,7 +43,7 @@ A web app for monitoring [NATS](https://nats.io/) servers and for watching and p
 | Semgrep CE (`p/default`) | All source code | 0 findings |
 | Trivy | Lockfiles: Cargo, npm, pip, Go | 0 vulnerabilities |
 | Trivy | Secrets | 0 |
-| Trivy | Dockerfiles | 0 critical, 0 high (3 low) |
+| Trivy | Dockerfiles | 0 misconfigurations |
 | Trivy | Runtime image | 0 critical, 0 high (3 medium, 9 low, none fixable) |
 
 The [Security scan](https://github.com/titikterang/NATS-WebUI/actions/workflows/security.yml) workflow repeats these checks on every pull request to `master` and fails on blocking findings. Run the same checks locally with `make scan`. Details are in [Security scanning](documentation/security-scanning.md).

@@ -9,4 +9,6 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/client .
 FROM gcr.io/distroless/static-debian13:nonroot
 COPY --from=build /out/client /client
 USER 65532:65532
+# One-shot client: it publishes or receives COUNT messages and exits, so there's nothing to probe.
+HEALTHCHECK NONE
 ENTRYPOINT ["/client"]

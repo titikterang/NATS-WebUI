@@ -53,7 +53,7 @@ The first run downloads the scanner images and Trivy's vulnerability database (a
 | Semgrep CE 1.186.0 | Source code | 0 findings | pass |
 | Trivy 0.76.2 | Lockfiles (Cargo, npm, pip, Go) | 0 critical, 0 high, 0 medium, 0 low | pass |
 | Trivy 0.76.2 | Secrets | 0 found | pass |
-| Trivy 0.76.2 | Dockerfiles | 0 critical, 0 high, 0 medium, 3 low | pass |
+| Trivy 0.76.2 | Dockerfiles | 0 critical, 0 high, 0 medium, 0 low | pass |
 | Trivy 0.76.2 | Image nats-webui_dev | 0 critical, 0 high, 3 medium, 9 low; 0 fixable critical/high | pass |
 ```
 
