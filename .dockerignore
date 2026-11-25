@@ -1,0 +1,16 @@
+# Secrets and local state must never reach the build context or image layers.
+sandbox/
+credential/
+.env
+*.db
+*.db.BAK
+*.db-*
+
+# Build outputs and tooling
+target/
+web/node_modules/
+web/dist/
+.git/
+.idea/
+.vscode/
+screenshots/

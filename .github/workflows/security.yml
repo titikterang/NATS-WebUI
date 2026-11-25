@@ -1,0 +1,85 @@
+# Semgrep CE + Trivy on every pull request to master. Runs scripts/security-scan.sh, the same
+# script as `make scan`, so a local run reproduces CI exactly.
+#
+# Supply-chain hygiene:
+#   - Scanners run from Docker images pinned by digest inside the script, not as third-party actions.
+#   - The only actions are GitHub's own, pinned to full commit SHAs (the tag is in the comment).
+#   - pull_request (not pull_request_target): fork PRs get a read-only token and no secrets.
+name: Security scan
+
+on:
+  pull_request:
+    branches: [master]
+  # After a merge, scan master too: code scanning compares PR alerts against this baseline.
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: Security scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write # upload SARIF to code scanning
+    env:
+      SCAN_OUT: ${{ github.workspace }}/scan-reports
+      SCAN_MODE: enforce
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build runtime image
+        run: docker build --target runtime -t nats-webui:ci .
+
+      - name: Scan (Semgrep CE + Trivy)
+        id: scan
+        run: scripts/security-scan.sh nats-webui:ci
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f "$SCAN_OUT/summary.md" ]; then
+            { echo "## Security scan"; echo; cat "$SCAN_OUT/summary.md"; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: security-reports
+          path: scan-reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # Code scanning alerts (Security tab). Fork PRs have a read-only token, so they skip this;
+      # their results are in the job summary and the artifact.
+      - name: Code scanning - Semgrep
+        if: always() && hashFiles('scan-reports/semgrep.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+        with:
+          sarif_file: scan-reports/semgrep.sarif
+          category: semgrep
+
+      - name: Code scanning - Trivy (repository)
+        if: always() && hashFiles('scan-reports/trivy-fs.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+        with:
+          sarif_file: scan-reports/trivy-fs.sarif
+          category: trivy-repository
+
+      - name: Code scanning - Trivy (image)
+        if: always() && hashFiles('scan-reports/trivy-image-nats-webui_ci.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
+        with:
+          sarif_file: scan-reports/trivy-image-nats-webui_ci.sarif
+          category: trivy-image

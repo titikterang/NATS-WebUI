@@ -1,0 +1,10 @@
+{
+  "name": "nats-example-node",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": { "start": "node client.mjs" },
+  "dependencies": {
+    "@nats-io/transport-node": "^3.5.0"
+  }
+}
